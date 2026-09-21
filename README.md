@@ -1,3 +1,5 @@
+Website: https://jaggadhruv.github.io/macro-based-dashboard/
+
 # Macro cycle baskets
 
 Free-data sector rotation and stock screening for Indian and US equities.
