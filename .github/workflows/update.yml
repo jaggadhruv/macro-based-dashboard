@@ -1,41 +1,66 @@
-name: Update snapshots
+name: Update and publish
 
-# WEEKLY. One run every Saturday at 02:30 UTC (08:00 IST), after both the NSE
-# (Fri 15:30 IST) and US (Fri 16:00 ET) closes, so both markets carry the full
-# week's closing prices.
+# Two jobs:
+#   update  -- refreshes prices, runs the pipeline, commits the new snapshot
+#   deploy  -- publishes docs/ to GitHub Pages directly from this workflow
 #
-# Cron is always UTC and never adjusts for daylight saving. GitHub queues
-# scheduled jobs, so a start 5-30 minutes late is normal.
+# Publishing from the workflow itself matters. An earlier version committed the
+# snapshot and relied on GitHub's branch-based Pages build to notice. Pushes
+# made with the workflow's own token do not reliably trigger other workflows,
+# and "[skip ci]" in the commit message can suppress the Pages build as well --
+# so the job could succeed while the site never updated.
 #
-# To change the frequency, edit the cron line below AND "refresh_every_days" in
-# run.py's CONFIG, which the page uses to decide when data counts as stale.
-#   daily, weekdays : "30 22 * * 1-5"   and refresh_every_days 1
-#   weekly, Saturday: "30 2 * * 6"      and refresh_every_days 7
+# Settings > Pages > Source must be set to "GitHub Actions" for this to work.
+
 on:
   schedule:
-    - cron: "30 2 * * 6"      # Saturday 02:30 UTC, both markets
-  workflow_dispatch:            # lets you run it by hand from the Actions tab
+    # WEEKLY: Saturday 02:30 UTC (08:00 IST), after both the NSE and US
+    # Friday closes. Cron is always UTC. If you change this, also change
+    # "refresh_every_days" in run.py CONFIG.
+    - cron: "30 2 * * 6"
+  workflow_dispatch:
     inputs:
       market:
         description: "Which market to refresh"
         type: choice
         options: [both, india, us]
         default: both
+  push:
+    # Pushing code republishes the site with the existing data (no refresh).
+    branches: [main]
 
 concurrency:
   group: snapshots
-  cancel-in-progress: false     # never interrupt a run mid-commit
-
-permissions:
-  contents: write               # needed to push the regenerated JSON back
+  cancel-in-progress: false
 
 jobs:
   update:
+    # Only the schedule and the manual button refresh data. A code push just
+    # republishes, which takes about a minute.
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-
+    timeout-minutes: 45
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
+
+      # Fail fast, with a plain message, if the project files are not at the
+      # top level of the repository (a common result of zipping a folder
+      # inside a folder).
+      - name: Check repository layout
+        run: |
+          missing=""
+          for f in run.py requirements.txt themes.py docs/index.html engine fetch report; do
+            [ -e "$f" ] || missing="$missing $f"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Not found at the repository root:$missing"
+            echo "::error::The project files must sit at the top level of the repo, not inside a subfolder."
+            echo "Repository root contains:"; ls -la
+            exit 1
+          fi
+          echo "Layout OK"
 
       - uses: actions/setup-python@v5
         with:
@@ -44,12 +69,9 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-      # Price history, fundamentals and analyst estimates live in the Actions
-      # cache, not in git -- parquet is binary and rewritten each run.
-      # GitHub evicts cache entries unused for 7 days, which is exactly a weekly
-      # gap, so some weekly runs will miss and re-download everything. That is
-      # slower (several minutes) but still correct; the retry loop below covers
-      # the extra rate-limit risk.
+      # GitHub evicts cache entries unused for 7 days -- exactly the weekly gap
+      # -- so many runs will miss and re-download everything. Slower, still
+      # correct.
       - name: Restore data cache
         uses: actions/cache@v4
         with:
@@ -57,64 +79,65 @@ jobs:
             data/prices
             data/fundamentals
             data/forward
-          key: prices-${{ github.run_id }}
+          key: data-${{ github.run_id }}
           restore-keys: |
-            prices-
+            data-
 
       - name: Decide markets
         id: pick
         run: |
           M="${{ github.event.inputs.market || 'both' }}"
-          if [ "$M" = "both" ]; then echo "list=india us" >> $GITHUB_OUTPUT
-          else echo "list=$M" >> $GITHUB_OUTPUT; fi
+          if [ "$M" = "both" ]; then echo "list=india us" >> "$GITHUB_OUTPUT"
+          else echo "list=$M" >> "$GITHUB_OUTPUT"; fi
 
       - name: Refresh snapshots
-        id: run
         run: |
-          set +e
           FAILED=""
           for M in ${{ steps.pick.outputs.list }}; do
             echo "::group::$M"
-            # Yahoo intermittently rate-limits datacenter IPs. Retry twice with
-            # a pause before giving up on that market.
+            OK=0
+            # Yahoo intermittently rate-limits datacenter IPs; retry with a pause.
             for ATTEMPT in 1 2 3; do
-              python3 run.py --market "$M" --max-age 1 --no-serve && break
-              echo "attempt $ATTEMPT failed for $M"
-              [ $ATTEMPT -lt 3 ] && sleep 90
+              if python3 run.py --market "$M" --max-age 1 --no-serve; then
+                OK=1; break
+              fi
+              echo "::warning::$M attempt $ATTEMPT failed"
+              [ "$ATTEMPT" -lt 3 ] && sleep 90
             done
-            [ ${PIPESTATUS[0]} -ne 0 ] && FAILED="$FAILED $M"
+            [ "$OK" -eq 0 ] && FAILED="$FAILED $M"
             echo "::endgroup::"
           done
           if [ -n "$FAILED" ]; then
-            echo "::warning::Failed markets:$FAILED"
-            echo "failed=$FAILED" >> $GITHUB_OUTPUT
+            echo "::warning::Markets that failed:$FAILED"
           fi
-          # Never fail the job just because one market's fetch broke -- the
-          # other market's snapshot should still publish.
+          # Do not fail here: one market failing should not stop the other from
+          # publishing. The next step fails the job if nothing usable exists.
           exit 0
 
       - name: Sanity-check output
         run: |
           python3 - <<'PY'
           import json, sys, glob, datetime
+          files = glob.glob("docs/data/*.json")
+          if not files:
+              print("::error::No snapshot files in docs/data/. Open the 'Refresh snapshots' step above to see why.")
+              sys.exit(1)
           ok = False
-          for f in glob.glob("docs/data/*.json"):
+          for f in files:
               d = json.load(open(f))
-              age = (datetime.date.today()
-                     - datetime.date.fromisoformat(d["data_through"])).days
-              print(f"{f}: through {d['data_through']} ({age}d old), "
-                    f"{d['summary']['themes']} themes, "
-                    f"{d['summary']['themes_in_cycle']} in cycle")
-              if age > 7:
+              age = (datetime.date.today() - datetime.date.fromisoformat(d["data_through"])).days
+              print(f"{f}: data through {d['data_through']} ({age}d old), "
+                    f"{d['summary']['themes']} sectors, {len(d.get('picks', []))} picks")
+              if age > 10:
                   print(f"::warning::{f} data is {age} days old")
               if d["summary"]["themes"] > 0:
                   ok = True
           if not ok:
-              print("::error::No usable snapshot produced")
+              print("::error::Snapshots exist but contain no sectors")
               sys.exit(1)
           PY
 
-      - name: Commit and push
+      - name: Commit snapshot
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -122,9 +145,8 @@ jobs:
           if git diff --staged --quiet; then
             echo "Nothing changed."
           else
-            git commit -m "snapshot $(date -u +%Y-%m-%d) [skip ci]"
-            # Another run may have pushed while this one worked.
-            git pull --rebase --autostash origin ${{ github.ref_name }} || true
+            git commit -m "snapshot $(date -u +%Y-%m-%d)"
+            git pull --rebase --autostash origin "${{ github.ref_name }}" || true
             git push
           fi
 
@@ -136,4 +158,29 @@ jobs:
             data/prices
             data/fundamentals
             data/forward
-          key: prices-${{ github.run_id }}
+          key: data-${{ github.run_id }}
+
+  deploy:
+    # Runs after update -- and also when update was skipped (code push) or
+    # failed, so the site always reflects the latest committed snapshot rather
+    # than 404ing. A failed refresh shows up as an amber/red freshness dot.
+    needs: update
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}     # latest, including update's commit
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+      - id: deployment
+        uses: actions/deploy-pages@v4

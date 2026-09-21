@@ -68,12 +68,10 @@ scrubbing git history afterwards is painful.
 
 ## Step 2 — Turn on Pages (2 min)
 
-**Settings → Pages** → Source: *Deploy from a branch* → Branch `main`, folder `/docs` →
-Save.
+**Settings → Pages → Build and deployment → Source: GitHub Actions.**
 
-After about a minute: `https://<your-username>.github.io/macro-cycles/`
-
-It will say "No snapshot yet". The page loading at all means Pages works.
+Not "Deploy from a branch". The workflow publishes the site itself; the branch option
+relies on GitHub noticing a commit made by the workflow, which doesn't reliably happen.
 
 ---
 
@@ -104,8 +102,15 @@ Refresh the Pages URL. Data should appear, with a green dot and "Updated just no
 
 Without this the job runs but can't push its results, and every run fails at the commit.
 
-Test it by hand — don't wait for Saturday: **Actions** tab → **Update snapshots** →
-**Run workflow** → `both`. Five to ten minutes the first time.
+Test it by hand — don't wait for Saturday: **Actions** tab → **Update and publish** →
+**Run workflow** → `both`.
+
+You'll see two jobs. **update** takes 8–15 minutes the first time (ten years of prices,
+plus fundamentals and analyst data for every candidate). **deploy** then takes about a
+minute, and its box shows your site's URL when it finishes.
+
+**If the whole run finishes in under 3 minutes, something failed early.** A real refresh
+can't be that fast. Click into the run and find the red step.
 
 ### The schedule — weekly
 
@@ -169,26 +174,26 @@ light/dark setting.
 
 ## When it breaks
 
-**"Permission denied" on commit** — workflow permissions aren't read/write. Step 4.
+Open **Actions**, click the run, click the job with the red ✕, and expand the red step.
+The last 20 lines say why.
 
-**Fetch fails on GitHub but works locally** — Yahoo rate-limits datacenter IPs, and GitHub
-runners are datacenter IPs. The workflow retries three times, 90 seconds apart. If it
-keeps failing, run that market locally and push the JSON by hand. This is the most likely
-long-term failure of the whole arrangement, and it isn't your bug.
+| What you see | Cause | Fix |
+|---|---|---|
+| Run finished in 1–3 minutes, site not updated | Failed during setup | Find the red step; see the rows below |
+| **Check repository layout** is red: "Not found at the repository root" | The project is inside a subfolder of the repo (unzipping often creates `macro_rotation/macro_rotation/`) | Move the files so `run.py` sits at the top level, commit, push |
+| Only a job called **pages build and deployment** ran | Pages is set to "Deploy from a branch" | Step 2: set Source to **GitHub Actions** |
+| **deploy** is red: "Branch not allowed to deploy" | Your branch isn't called `main` | `git branch -M main` then `git push -u origin main` |
+| **deploy** is red: "Get Pages site failed" | Pages isn't enabled | Step 2 |
+| **Commit snapshot** red: "Permission denied" | Workflow can't push | Settings → Actions → General → Workflow permissions → Read and write |
+| **Sanity-check output** red: "No snapshot files" | Every market failed to download | Open **Refresh snapshots**; usually Yahoo blocking GitHub's servers — re-run later, or run locally and push |
+| Site loads but says "No snapshot yet" | Deploy ran, refresh didn't | Run the workflow manually |
+| Amber dot on Sunday/Monday | Saturday's run failed | Check the Actions tab |
+| Site shows old data after a run | Browser cache | Hard-refresh: Ctrl-Shift-R |
 
-**Red dot / "Prices are N days old"** — the schedule has stopped. Check the Actions tab for
-failed runs.
-
-**Page shows stale data after a push** — hard-refresh (Ctrl-Shift-R, or Cmd-Shift-R). The
-JSON is fetched with a cache-buster but the HTML itself can be cached.
-
-**A sector vanished** — it dropped below 8 usable tickers. Check the warnings banner.
-
-**Workflow succeeded, nothing changed** — happens after a market-holiday week with no new
-closes. Identical JSON, nothing to commit.
-
-**Amber dot on Sunday or Monday** — Saturday's run was missed or failed. Open the Actions
-tab, click the failed run, expand the red step.
+**Yahoo blocking GitHub** is the most likely long-term failure. GitHub's runners are
+datacenter IPs, which Yahoo rate-limits. The workflow retries each market three times,
+90 seconds apart. If it keeps failing, run `python run.py --no-serve` locally, then
+`git add docs ledger`, commit and push — the deploy job publishes it within a minute.
 
 ---
 
