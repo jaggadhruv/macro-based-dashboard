@@ -1,0 +1,139 @@
+name: Update snapshots
+
+# WEEKLY. One run every Saturday at 02:30 UTC (08:00 IST), after both the NSE
+# (Fri 15:30 IST) and US (Fri 16:00 ET) closes, so both markets carry the full
+# week's closing prices.
+#
+# Cron is always UTC and never adjusts for daylight saving. GitHub queues
+# scheduled jobs, so a start 5-30 minutes late is normal.
+#
+# To change the frequency, edit the cron line below AND "refresh_every_days" in
+# run.py's CONFIG, which the page uses to decide when data counts as stale.
+#   daily, weekdays : "30 22 * * 1-5"   and refresh_every_days 1
+#   weekly, Saturday: "30 2 * * 6"      and refresh_every_days 7
+on:
+  schedule:
+    - cron: "30 2 * * 6"      # Saturday 02:30 UTC, both markets
+  workflow_dispatch:            # lets you run it by hand from the Actions tab
+    inputs:
+      market:
+        description: "Which market to refresh"
+        type: choice
+        options: [both, india, us]
+        default: both
+
+concurrency:
+  group: snapshots
+  cancel-in-progress: false     # never interrupt a run mid-commit
+
+permissions:
+  contents: write               # needed to push the regenerated JSON back
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      # Price history, fundamentals and analyst estimates live in the Actions
+      # cache, not in git -- parquet is binary and rewritten each run.
+      # GitHub evicts cache entries unused for 7 days, which is exactly a weekly
+      # gap, so some weekly runs will miss and re-download everything. That is
+      # slower (several minutes) but still correct; the retry loop below covers
+      # the extra rate-limit risk.
+      - name: Restore data cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/prices
+            data/fundamentals
+            data/forward
+          key: prices-${{ github.run_id }}
+          restore-keys: |
+            prices-
+
+      - name: Decide markets
+        id: pick
+        run: |
+          M="${{ github.event.inputs.market || 'both' }}"
+          if [ "$M" = "both" ]; then echo "list=india us" >> $GITHUB_OUTPUT
+          else echo "list=$M" >> $GITHUB_OUTPUT; fi
+
+      - name: Refresh snapshots
+        id: run
+        run: |
+          set +e
+          FAILED=""
+          for M in ${{ steps.pick.outputs.list }}; do
+            echo "::group::$M"
+            # Yahoo intermittently rate-limits datacenter IPs. Retry twice with
+            # a pause before giving up on that market.
+            for ATTEMPT in 1 2 3; do
+              python3 run.py --market "$M" --max-age 1 --no-serve && break
+              echo "attempt $ATTEMPT failed for $M"
+              [ $ATTEMPT -lt 3 ] && sleep 90
+            done
+            [ ${PIPESTATUS[0]} -ne 0 ] && FAILED="$FAILED $M"
+            echo "::endgroup::"
+          done
+          if [ -n "$FAILED" ]; then
+            echo "::warning::Failed markets:$FAILED"
+            echo "failed=$FAILED" >> $GITHUB_OUTPUT
+          fi
+          # Never fail the job just because one market's fetch broke -- the
+          # other market's snapshot should still publish.
+          exit 0
+
+      - name: Sanity-check output
+        run: |
+          python3 - <<'PY'
+          import json, sys, glob, datetime
+          ok = False
+          for f in glob.glob("docs/data/*.json"):
+              d = json.load(open(f))
+              age = (datetime.date.today()
+                     - datetime.date.fromisoformat(d["data_through"])).days
+              print(f"{f}: through {d['data_through']} ({age}d old), "
+                    f"{d['summary']['themes']} themes, "
+                    f"{d['summary']['themes_in_cycle']} in cycle")
+              if age > 7:
+                  print(f"::warning::{f} data is {age} days old")
+              if d["summary"]["themes"] > 0:
+                  ok = True
+          if not ok:
+              print("::error::No usable snapshot produced")
+              sys.exit(1)
+          PY
+
+      - name: Commit and push
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs ledger
+          if git diff --staged --quiet; then
+            echo "Nothing changed."
+          else
+            git commit -m "snapshot $(date -u +%Y-%m-%d) [skip ci]"
+            # Another run may have pushed while this one worked.
+            git pull --rebase --autostash origin ${{ github.ref_name }} || true
+            git push
+          fi
+
+      - name: Save data cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            data/prices
+            data/fundamentals
+            data/forward
+          key: prices-${{ github.run_id }}

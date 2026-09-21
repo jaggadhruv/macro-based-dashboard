@@ -1,0 +1,14 @@
+# Price cache — large, binary, rewritten in full each run.
+# Lives in the GitHub Actions cache instead of git history.
+data/prices/
+data/fundamentals/
+data/forward/
+data/reports/
+
+# Anything containing your actual positions or capital stays local.
+ledger/private/
+
+__pycache__/
+*.pyc
+.venv/
+.DS_Store

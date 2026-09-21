@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#EFF1EC" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121714" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Cycles">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<title>Sector overview</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<nav>
+  <a href="index.html" class="active">Overview</a>
+  <a href="themes.html">Theme detail</a>
+</nav>
+
+<header>
+  <h1>Sector overview</h1>
+  <div class="sub" id="stamp">Loading…</div>
+</header>
+
+<div id="market-chips" class="chips"></div>
+<div id="warnings"></div>
+
+<div id="qbar"></div>
+<div id="picks-wrap"></div>
+<div id="zones"></div>
+
+<div class="card" id="tech-card">
+  <h2>Technical buy setups</h2>
+  <p class="hint">Names whose chart structure, base, volatility and volume all agree, with a
+  defined entry, stop and target. Every setup must clear an eight-point trend filter, keep the
+  stop within 12% of entry, and offer at least 2:1 reward to risk — otherwise it is not listed.
+  <strong>Ordered by quality.</strong> Click a column to sort.</p>
+  <div id="tech-chips" class="chips" style="margin-bottom:12px"></div>
+  <div class="scroll"><table id="tech"></table></div>
+  <p class="hint" style="margin-top:13px"><strong>These are entry mechanics, not predictions.</strong>
+  A setup like this might work 40–50% of the time; it makes money only because the winners run
+  further than the losers, and that arithmetic collapses if the stop is not taken. On synthetic
+  data this filter fires on roughly a third of genuine base-and-uptrend charts, about 6% of pure
+  random walks and 1% of downtrends — patterns do appear in noise, so the sector zone above is the
+  filter that matters most.</p>
+</div>
+
+<div class="card" id="league-card">
+  <h2>All sectors, ranked</h2>
+  <p class="hint">Score is a percentile blend within this market: relative strength (1M and
+  3M), breadth, long-term trend, and the direction the cycle oscillator is moving. A score
+  of 80 means stronger than 80% of these sectors today — not an absolute judgement.
+  Click a column to sort.</p>
+  <div class="scroll"><table id="league"></table></div>
+</div>
+
+<footer id="foot">
+  Sectors are scored against each other, so the ranking is always relative — in a weak
+  market something still ranks first. Read the zone and the breadth column, not only the rank.
+</footer>
+
+</div>
+<script src="app.js"></script>
+<script>
+const ZONE_META = {
+  leading:  { cls: 'zone-lead',    title: 'Leading',
+              what: 'Either a cycle entry has triggered, or the sector ranks near the top with breadth and trend confirming. These are where money is already rotating.' },
+  building: { cls: 'zone-build',   title: 'Building momentum',
+              what: 'No entry signal yet, but the cycle oscillator is climbing and the group is repairing. This is a watchlist: the next entries usually come from here.' },
+  neutral:  { cls: 'zone-neutral', title: 'No clear signal',
+              what: 'Neither improving nor deteriorating enough to act on.' },
+  avoid:    { cls: 'zone-avoid',   title: 'Avoid',
+              what: 'Bottom-ranked on strength and breadth, with the trend still falling. Momentum screens keep surfacing names from here — that is the trap.' },
+};
+
+function pickCard(p) {
+  const w = Math.max(0, Math.min(100, p.pick_score));
+  return `<div class="pick">
+    <div class="r">PICK ${p.pick_rank}${p.in_cycle_theme ? ' · IN CYCLE' : ''}</div>
+    <div class="tk">${p.ticker}</div>
+    <div class="th">${p.theme} · sector #${p.sector_rank}</div>
+    <div class="bar"><i style="width:${w}%"></i></div>
+    <dl>
+      <dt>Score</dt><dd><strong>${num(p.pick_score, 1)}</strong></dd>
+      <dt>RS 1M</dt><dd class="${cls(p.rs_1m)}">${sgn(p.rs_1m)}</dd>
+      <dt>3M</dt><dd class="${cls(p.ret_3m)}">${sgn(p.ret_3m)}</dd>
+      <dt>Ext</dt><dd>${num(p.atr_extension, 1)} ATR</dd>
+      <dt>State</dt><dd><span class="tag s-${p.setup}">${p.setup ?? '—'}</span></dd>
+      ${p.revenue_growth != null ? `<dt>Rev gr</dt><dd class="${cls(p.revenue_growth)}">${sgn(p.revenue_growth)}</dd>` : ''}
+      ${p.roce != null ? `<dt>ROCE</dt><dd>${pct(p.roce)}</dd>` : ''}
+      <dt>Forward</dt><dd>${p.fwd_score != null
+        ? `<span class="fscore">${num(p.fwd_score, 0)}</span>` : '<span class="muted">—</span>'}
+        <span class="cov cov-${p.coverage || 'none'}">${p.coverage || 'none'}</span></dd>
+      ${p.drawdown_from_high != null ? `<dt>From high</dt><dd>${sgn(p.drawdown_from_high)}</dd>` : ''}
+    </dl>
+    <div class="fwd">${p.fwd_summary || 'no analyst coverage'}</div>
+    ${p.tech_signal ? `<div class="trade" style="margin-top:10px;padding-top:9px;border-top:1px solid var(--rule)">
+      <span class="sig-${p.tech_signal}"><b>${p.tech_signal}</b></span> ·
+      stop <span class="st">${num(p.tech_stop)}</span> ·
+      target <span class="tg">${num(p.tech_target)}</span> ·
+      <b>${num(p.tech_rr, 1)}R</b></div>` : ''}
+    </div>`;
+}
+
+// The best names inside one sector, rendered under that sector's own row.
+function sectorPickTable(s) {
+  const picks = s.picks || [];
+  if (!picks.length) {
+    return `<p class="picknote">No member is currently buyable: every name is either below a
+      falling 50-day, stretched past 3 ATR, or failed the screen.</p>`;
+  }
+  const pool = s.pick_pool;
+  return `<div class="zpicks"><table>
+    <thead><tr><th>#</th><th>Ticker</th><th class="num">Score</th><th class="num">Close</th>
+      <th class="num">RS 1M</th><th class="num">3M</th><th class="num">Ext</th>
+      <th class="num">Fwd</th><th>State</th><th>Entry / stop / target</th></tr></thead><tbody>` +
+    picks.map(p => `<tr class="${p.tech_signal ? 'has-tech' : ''}">
+      <td>${p.sector_pick_rank}</td>
+      <td class="${p.sector_pick_rank === 1 ? 'lead-cell' : ''}">${p.ticker}${
+        p.in_basket ? ' <span class="tag s-pullback">held</span>' : ''}</td>
+      <td class="num"><strong>${num(p.pick_score, 0)}</strong></td>
+      <td class="num">${num(p.close)}</td>
+      <td class="num ${cls(p.rs_1m)}">${sgn(p.rs_1m)}</td>
+      <td class="num ${cls(p.ret_3m)}">${sgn(p.ret_3m)}</td>
+      <td class="num">${num(p.atr_extension, 1)}</td>
+      <td class="num" title="${(p.fwd_summary || 'no analyst coverage').replace(/"/g, '')}">${
+        p.fwd_score != null ? `<span class="fscore">${num(p.fwd_score, 0)}</span>` : '<span class="muted">—</span>'}</td>
+      <td><span class="tag s-${p.setup}">${p.setup ?? '—'}</span></td>
+      <td class="trade">${p.tech_signal
+        ? `<span class="sig-${p.tech_signal}"><b>${p.tech_signal}</b></span>
+           ${num(p.tech_entry)} / <span class="st">${num(p.tech_stop)}</span>
+           / <span class="tg">${num(p.tech_target)}</span> <b>${num(p.tech_rr, 1)}R</b>`
+        : '<span class="muted">no technical entry yet</span>'}</td>
+    </tr>`).join('') + `</tbody></table>
+    ${pool ? `<p class="picknote">Top ${picks.length} of ${pool.candidates} members;
+      ${pool.excluded} excluded as not buyable today. Rows shaded green also have a
+      technical entry with a defined stop.</p>` : ''}</div>`;
+}
+
+function zoneBlock(zone, sectors) {
+  const rows = sectors.filter(s => s.zone === zone);
+  if (!rows.length) return '';
+  const m = ZONE_META[zone];
+  // Leading sectors open by default -- they are where the buying happens.
+  // Avoid sectors never show a buy list at all; that would contradict the label.
+  const openByDefault = zone === 'leading';
+  const showPicks = zone !== 'avoid';
+
+  return `<div class="zone ${m.cls}">
+    <div class="head"><h2>${m.title}</h2><span class="n">${rows.length} sector${rows.length > 1 ? 's' : ''}</span>
+      <span class="what">${m.what}</span></div>
+    <div class="body">` +
+    rows.map((s, i) => `<div class="zsec">
+      <div class="zhead" data-sec="${zone}-${i}">
+        ${showPicks ? `<span class="caret">${openByDefault ? '▾' : '▸'}</span>` : '<span class="caret"></span>'}
+        <span class="nm">${s.theme}</span>
+        <span class="sc">${num(s.score, 0)}</span>
+        <span class="why">${s.reason}</span>
+        <span class="mets">
+          <span>RS 1M ${sgn(s.rs_1m)}</span>
+          <span>breadth ${s.breadth_50d == null ? '—' : s.breadth_50d + '%'}</span>
+          <span>osc ${s.oscillator ?? '—'}${s.osc_slope == null ? '' :
+            ` (${s.osc_slope >= 0 ? '+' : ''}${num(s.osc_slope, 0)}/mo)`}</span>
+          <a href="themes.html?m=${market}#${encodeURIComponent(s.theme)}">detail →</a>
+        </span>
+      </div>
+      ${showPicks
+        ? `<div id="sec-${zone}-${i}" ${openByDefault ? '' : 'hidden'}>
+             <p class="picknote" style="margin-top:10px">${
+               zone === 'leading' ? '<strong>Best names in this sector to buy.</strong>'
+               : zone === 'building' ? '<strong>Watchlist.</strong> The sector has not signalled yet — these are the names to be ready on, not to buy today.'
+               : '<strong>For reference.</strong> The sector shows no clear signal, so these carry no sector tailwind.'
+             }</p>${sectorPickTable(s)}`
+           + `</div>`
+        : `<p class="nobuy">No buy list shown. This sector is weak and still deteriorating —
+             its strongest-looking names are exactly the trap the red zone marks.</p>`}
+    </div>`).join('') + `</div></div>`;
+}
+
+async function render() {
+  const d = await loadMarket(market);
+  stamp(d);
+  const sectors = d.sectors || [];
+
+  const full = (d.quality_mode || '').includes('fundamentals');
+  const sm = d.summary || {};
+  document.getElementById('qbar').innerHTML = `<div class="qbar">
+    <b>Every recommendation passed</b>
+    <span class="ok">✓ not falling</span>
+    <span class="${full ? 'ok' : 'off'}">✓ fundamentals</span>
+    <span class="${full ? 'ok' : 'off'}">✓ estimates not being cut</span>
+    <span class="muted">${sm.quality_passed ?? '—'} of ${sm.screened ?? '—'} screened names qualify${
+      full ? '' : ' · <strong>price-structure only this run</strong> (run without --no-gate for the full screen)'}</span>
+  </div>`;
+
+  const picks = d.picks || [];
+  document.getElementById('picks-wrap').innerHTML = picks.length ? `
+    <div class="card"><h2>Top ${picks.length} picks across all sectors</h2>
+      <p class="hint">35% sector strength, 32% the name's own strength inside its sector, 18%
+      forward expectations — analyst estimate revisions weighted most, price targets least.
+      Names with no analyst coverage are treated as average rather than rewarded or penalised.
+      Every name here passed the quality gate above. Capped at two per sector — five names
+      from one sector would be one bet, not five.</p>
+      <div class="picks">${picks.map(pickCard).join('')}</div>
+      <p class="hint" style="margin-top:14px">A ranking, not a portfolio. Five concentrated
+      positions carry real single-name risk; size accordingly and do your own work on each.</p>
+    </div>` : '';
+
+  document.getElementById('zones').innerHTML =
+    ['leading', 'building', 'neutral', 'avoid'].map(z => zoneBlock(z, sectors)).join('')
+    || '<div class="card"><p class="hint">No sectors scored.</p></div>';
+
+  document.querySelectorAll('.zhead[data-sec]').forEach(h => h.onclick = e => {
+    if (e.target.tagName === 'A') return;          // let the detail link through
+    const panel = document.getElementById('sec-' + h.dataset.sec);
+    if (!panel) return;
+    panel.hidden = !panel.hidden;
+    const c = h.querySelector('.caret');
+    if (c) c.textContent = panel.hidden ? '▸' : '▾';
+  });
+
+  // ---- technical setups
+  const tech = d.technical || [];
+  const TECH_HELP = {
+    breakout: 'Clears a genuine base on expanding volume. The most actionable, and the most likely to fail immediately if the market turns.',
+    pullback: 'An intact uptrend has come back to a rising average. Best risk, because the stop sits close beneath.',
+    squeeze: 'Volatility contracted near the highs. A watch, not a buy — direction is unresolved until it expands.',
+    reclaim: 'Back above the 50-day from below. Earliest in a turn and the least reliable of the four.',
+  };
+  let techFilter = 'all';
+  const techCounts = {};
+  tech.forEach(s => techCounts[s.signal] = (techCounts[s.signal] || 0) + 1);
+
+  function paintTech() {
+    const rows = tech.filter(s => techFilter === 'all' || s.signal === techFilter);
+    const el = document.getElementById('tech');
+    if (!rows.length) {
+      el.innerHTML = '<tbody><tr><td class="muted">No setups met the quality floor today. That is a normal outcome — most days there is nothing to do.</td></tr></tbody>';
+      return;
+    }
+    const maxRR = Math.max(...rows.map(s => s.reward_risk || 0), 1);
+    el.innerHTML = `<thead><tr><th>Ticker</th><th>Setup</th><th class="num">Quality</th>
+      <th>Sector</th><th class="num">Entry</th><th class="num">Stop</th><th class="num">Target</th>
+      <th class="num">Risk</th><th class="num">R:R</th><th data-nosort>Risk / reward</th>
+      <th class="num">Trend</th><th class="num">RS 1M</th></tr></thead><tbody>` +
+      rows.map(s => {
+        const rw = Math.min(100, (s.reward_risk / maxRR) * 78);
+        return `<tr>
+        <td data-sort="${s.ticker}"><strong>${s.ticker}</strong>
+          <div class="hint" style="font-size:11px;margin:2px 0 0">${s.reasons || ''}</div></td>
+        <td data-sort="${s.signal}"><span class="tag sig-${s.signal}">${s.signal}</span></td>
+        <td class="num" data-sort="${s.quality}"><span class="qbadge">${num(s.quality, 0)}</span></td>
+        <td class="muted" data-sort="${s.theme || ''}">${s.theme || '—'}</td>
+        <td class="num" data-sort="${s.entry}">${num(s.entry)}</td>
+        <td class="num neg" data-sort="${s.stop}">${num(s.stop)}</td>
+        <td class="num pos" data-sort="${s.target}">${num(s.target)}</td>
+        <td class="num" data-sort="${s.risk_pct}">${pct(s.risk_pct)}</td>
+        <td class="num" data-sort="${s.reward_risk}"><strong>${num(s.reward_risk, 1)}</strong></td>
+        <td data-nosort><span class="rrbar"><i class="risk" style="width:${(78 / (s.reward_risk || 1)).toFixed(0)}%"></i><i class="rew" style="width:${rw.toFixed(0)}%"></i></span></td>
+        <td class="num muted" data-sort="${s.trend_passed ?? ''}">${s.trend_checks || '—'}</td>
+        <td class="num ${cls(s.rs_1m)}" data-sort="${s.rs_1m ?? ''}">${sgn(s.rs_1m)}</td></tr>`;
+      }).join('') + '</tbody>';
+    makeSortable(el);
+  }
+
+  document.getElementById('tech-chips').innerHTML =
+    [['all', `All ${tech.length}`]].concat(
+      ['breakout', 'pullback', 'squeeze', 'reclaim']
+        .filter(k => techCounts[k])
+        .map(k => [k, `${k} ${techCounts[k]}`]))
+    .map(([k, l]) => `<button class="chip" aria-pressed="${k === 'all'}" data-t="${k}" ${
+      TECH_HELP[k] ? `title="${TECH_HELP[k]}"` : ''}>${l}</button>`).join('');
+  document.querySelectorAll('#tech-chips .chip').forEach(b => b.onclick = () => {
+    techFilter = b.dataset.t;
+    document.querySelectorAll('#tech-chips .chip').forEach(x =>
+      x.setAttribute('aria-pressed', x.dataset.t === techFilter));
+    paintTech();
+  });
+  paintTech();
+
+  const cols = [
+    ['rank', '#'], ['theme', 'Sector'], ['score', 'Score'], ['zone', 'Zone'],
+    ['rs_1m', 'RS 1M'], ['rs_3m', 'RS 3M'], ['breadth_50d', '&gt;50d'],
+    ['dist_50d', '50d'], ['dist_200d', '200d'],
+    ['oscillator', 'Osc'], ['osc_slope', 'Osc/mo'], ['members', 'Names'],
+  ];
+  const pctCols = new Set(['rs_1m', 'rs_3m', 'dist_50d', 'dist_200d']);
+  document.getElementById('league').innerHTML =
+    '<thead><tr>' + cols.map(([k, l], i) =>
+      `<th class="${i > 1 && k !== 'zone' ? 'num' : ''}">${l}</th>`).join('') +
+    '</tr></thead><tbody>' +
+    sectors.map(s => '<tr>' + cols.map(([k]) => {
+      const v = s[k];
+      if (k === 'rank') return `<td data-sort="${v}">${v}</td>`;
+      if (k === 'theme') return `<td data-sort="${v}"><a href="themes.html?m=${market}#${encodeURIComponent(v)}" style="color:inherit"><strong>${v}</strong></a></td>`;
+      if (k === 'zone') return `<td data-sort="${v}"><span class="tag ${
+        v === 'leading' ? 's-pullback' : v === 'building' ? 's-extended' :
+        v === 'avoid' ? 's-broken' : 's-neutral'}">${v}</span></td>`;
+      if (k === 'score') return `<td class="num" data-sort="${v ?? ''}"><strong>${num(v, 0)}</strong></td>`;
+      if (k === 'breadth_50d') return `<td class="num" data-sort="${v ?? ''}">${v == null ? '—' : v + '%'}</td>`;
+      if (k === 'members') return `<td class="num muted" data-sort="${v ?? ''}">${v ?? '—'}</td>`;
+      if (k === 'osc_slope') return `<td class="num ${cls(v)}" data-sort="${v ?? ''}">${v == null ? '—' : (v >= 0 ? '+' : '') + num(v, 0)}</td>`;
+      if (k === 'oscillator') return `<td class="num" data-sort="${v ?? ''}">${v ?? '—'}</td>`;
+      if (pctCols.has(k)) {
+        const rise = s['rising_' + k.replace('dist_', '')];
+        return `<td class="num ${cls(v)}" data-sort="${v ?? ''}">${sgn(v)}${
+          rise === undefined ? '' : ` <span class="muted">${arrow(rise)}</span>`}</td>`;
+      }
+      return `<td class="num" data-sort="${v ?? ''}">${num(v, 2)}</td>`;
+    }).join('') + '</tr>').join('') + '</tbody>';
+  makeSortable(document.getElementById('league'));
+
+  const s = d.summary;
+  document.getElementById('foot').innerHTML =
+    `${s.cycles_closed} cycles closed historically · hit rate ${s.hit_rate == null ? '—' : pct(s.hit_rate, 0)} ·
+     average cycle ${sgn(s.avg_cycle_return)} · worst drawdown ${pct(s.worst_drawdown)}.
+     Sectors are scored against each other, so something always ranks first even in a weak
+     market. Read the zone and breadth, not only the rank. Not investment advice.`;
+}
+
+marketChips(() => render().catch(showErr));
+function showErr(e) {
+  document.getElementById('stamp').textContent = 'No data loaded';
+  document.getElementById('zones').innerHTML = failureHtml(e, market);
+  document.getElementById('picks-wrap').innerHTML = '';
+  document.getElementById('league-card').style.display = 'none';
+  document.getElementById('tech-card').style.display = 'none';
+}
+render().catch(showErr);
+</script>
+</body>
+</html>

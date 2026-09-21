@@ -1,0 +1,12 @@
+{
+  "name": "Macro cycle baskets",
+  "short_name": "Cycles",
+  "description": "Sector rotation and stock screening, refreshed automatically",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#EFF1EC",
+  "theme_color": "#18211D",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

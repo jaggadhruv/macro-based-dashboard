@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#EFF1EC" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121714" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Cycles">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<title>Theme detail</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<nav>
+  <a href="index.html">Overview</a>
+  <a href="themes.html" class="active">Theme detail</a>
+</nav>
+
+<header>
+  <h1>Theme detail</h1>
+  <div class="sub" id="stamp">Loading…</div>
+</header>
+
+<div id="market-chips" class="chips"></div>
+<div id="warnings"></div>
+
+<div id="filter" class="chips"></div>
+<div id="themes"></div>
+
+<div class="card">
+  <h2>Pullbacks into rising averages</h2>
+  <p class="hint">Above a rising 50-day, lower on the week, within one ATR of a rising
+  average. Trend intact, price came back to you. Strongest relative strength first.</p>
+  <div class="scroll"><table id="pullback"></table></div>
+</div>
+
+<div class="card">
+  <h2>Rallies into falling averages</h2>
+  <p class="hint">Below a falling 50-day but higher on the week. A bounce inside a downtrend,
+  and the most common trap a momentum screen walks into. Shown so you recognise these, not
+  buy them. Weakest relative strength first.</p>
+  <div class="scroll"><table id="rally"></table></div>
+</div>
+
+<footer>Equal-weight theme indexes, end-of-day prices. Not investment advice.</footer>
+
+</div>
+<script src="app.js"></script>
+<script>
+let zoneFilter = 'all';
+
+function driversTable(rows) {
+  if (!rows || !rows.length) return '<p class="hint">No member data.</p>';
+  const head = `<thead><tr><th>#</th><th>Ticker</th><th class="num">Close</th>
+    <th class="num">1W</th><th class="num">1M</th><th class="num">3M</th>
+    <th class="num">RS 1M</th><th class="num">Contrib</th><th class="num">50d</th>
+    <th class="num">Ext</th><th class="num">RVol</th><th>State</th><th>Basket</th>
+    </tr></thead>`;
+  return `<table>${head}<tbody>` + rows.map(m => `<tr>
+    <td data-sort="${m.driver_rank}">${m.driver_rank}</td>
+    <td data-sort="${m.ticker}"><strong>${m.ticker}</strong></td>
+    <td class="num" data-sort="${m.close ?? ''}">${num(m.close)}</td>
+    <td class="num ${cls(m.ret_1w)}" data-sort="${m.ret_1w ?? ''}">${sgn(m.ret_1w)}</td>
+    <td class="num ${cls(m.ret_1m)}" data-sort="${m.ret_1m ?? ''}">${sgn(m.ret_1m)}</td>
+    <td class="num ${cls(m.ret_3m)}" data-sort="${m.ret_3m ?? ''}">${sgn(m.ret_3m)}</td>
+    <td class="num ${cls(m.rs_1m)}" data-sort="${m.rs_1m ?? ''}">${sgn(m.rs_1m)}</td>
+    <td class="num ${cls(m.contribution_1m)}" data-sort="${m.contribution_1m ?? ''}">${sgn(m.contribution_1m, 2)}</td>
+    <td class="num ${cls(m.dist_50d)}" data-sort="${m.dist_50d ?? ''}">${sgn(m.dist_50d)} <span class="muted">${arrow(m.rising_50d)}</span></td>
+    <td class="num" data-sort="${m.atr_extension ?? ''}">${num(m.atr_extension, 1)}</td>
+    <td class="num" data-sort="${m.rel_volume ?? ''}">${num(m.rel_volume)}</td>
+    <td data-sort="${m.setup ?? ''}"><span class="tag s-${m.setup}">${m.setup ?? '—'}</span></td>
+    <td data-sort="${m.in_basket ? 1 : 0}">${m.in_basket ? '<span class="tag s-pullback">held</span>' : ''}</td>
+    </tr>`).join('') + '</tbody></table>';
+}
+
+function basketTable(members) {
+  const held = (members || []).filter(m => m.in_basket).sort((a, b) => a.basket_rank - b.basket_rank);
+  if (!held.length) return '';
+  return `<h2 style="margin-top:20px">Held basket</h2><div class="scroll"><table>
+    <thead><tr><th>#</th><th>Ticker</th><th>Tier</th><th class="num">Weight</th>
+    <th class="num">1M</th><th class="num">RS 1M</th><th class="num">Ext</th>
+    <th>State</th><th class="num">Rev gr</th><th class="num">ROCE</th></tr></thead><tbody>` +
+    held.map(m => `<tr><td>${m.basket_rank}</td><td><strong>${m.ticker}</strong></td>
+      <td><span class="tag ${m.tier === 'T1' ? 's-pullback' : 's-trend'}">${m.tier}</span></td>
+      <td class="num">${pct(m.weight)}</td>
+      <td class="num ${cls(m.ret_1m)}">${sgn(m.ret_1m)}</td>
+      <td class="num ${cls(m.rs_1m)}">${sgn(m.rs_1m)}</td>
+      <td class="num">${num(m.atr_extension, 1)}</td>
+      <td><span class="tag s-${m.setup}">${m.setup ?? '—'}</span></td>
+      <td class="num ${cls(m.revenue_growth)}">${sgn(m.revenue_growth)}</td>
+      <td class="num">${pct(m.roce)}</td></tr>`).join('') +
+    `</tbody></table></div>
+     <p class="hint" style="margin-top:10px">Tier 1 holds 70% of this theme's sleeve across the
+     top four names, tier 2 the remaining 30%. Entered and exited as one basket.</p>`;
+}
+
+function scanTable(el, rows) {
+  const cols = [['ticker', 'Symbol'], ['theme', 'Theme'], ['close', 'Close'],
+    ['ret_1d', '1D'], ['ret_1w', '1W'], ['rs_1m', 'RS 1M'],
+    ['dist_20d', '20d'], ['dist_50d', '50d'], ['atr_extension', 'Ext'], ['rel_volume', 'RVol']];
+  if (!rows || !rows.length) {
+    el.innerHTML = '<tbody><tr><td class="muted">Nothing matches today.</td></tr></tbody>';
+    return;
+  }
+  const pctCols = new Set(['ret_1d', 'ret_1w', 'rs_1m', 'dist_20d', 'dist_50d']);
+  el.innerHTML = '<thead><tr>' + cols.map(([k, l], i) =>
+      `<th class="${i > 1 ? 'num' : ''}">${l}</th>`).join('') + '</tr></thead><tbody>' +
+    rows.map(r => '<tr>' + cols.map(([k]) => {
+      const v = r[k];
+      if (k === 'ticker') return `<td data-sort="${v}"><strong>${v}</strong></td>`;
+      if (k === 'theme') return `<td data-sort="${v}" class="muted">${v}</td>`;
+      if (pctCols.has(k)) return `<td class="num ${cls(v)}" data-sort="${v ?? ''}">${sgn(v)}</td>`;
+      return `<td class="num" data-sort="${v ?? ''}">${num(v, 2)}</td>`;
+    }).join('') + '</tr>').join('') + '</tbody>';
+  makeSortable(el);
+}
+
+async function render() {
+  const d = await loadMarket(market);
+  stamp(d);
+  const ez = d.config.entry_zone ?? 25, xz = d.config.exit_zone ?? 75;
+
+  const counts = {};
+  Object.values(d.themes).forEach(t => counts[t.zone || 'neutral'] = (counts[t.zone || 'neutral'] || 0) + 1);
+  document.getElementById('filter').innerHTML =
+    [['all', 'All'], ['leading', 'Leading'], ['building', 'Building'],
+     ['neutral', 'Neutral'], ['avoid', 'Avoid']]
+    .filter(([k]) => k === 'all' || counts[k])
+    .map(([k, l]) => `<button class="chip" aria-pressed="${k === zoneFilter}" data-z="${k}">${l}${
+      k === 'all' ? '' : ` ${counts[k]}`}</button>`).join('');
+  document.querySelectorAll('#filter .chip').forEach(b => b.onclick = () => {
+    zoneFilter = b.dataset.z;
+    document.querySelectorAll('#filter .chip').forEach(x =>
+      x.setAttribute('aria-pressed', x.dataset.z === zoneFilter));
+    paint(d, ez, xz);
+  });
+
+  paint(d, ez, xz);
+  scanTable(document.getElementById('pullback'), d.scans?.pullback);
+  scanTable(document.getElementById('rally'), d.scans?.rally_weak);
+
+  if (location.hash) {
+    const el = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function paint(d, ez, xz) {
+  const entries = Object.entries(d.themes)
+    .filter(([, t]) => zoneFilter === 'all' || (t.zone || 'neutral') === zoneFilter)
+    .sort((a, b) => (a[1].rank ?? 99) - (b[1].rank ?? 99));
+
+  document.getElementById('themes').innerHTML = entries.map(([name, t]) => {
+    const g = t.group || {};
+    const zc = t.zone === 'leading' ? 'zone-lead' : t.zone === 'building' ? 'zone-build'
+             : t.zone === 'avoid' ? 'zone-avoid' : 'zone-neutral';
+    return `
+    <div class="card ${zc}" id="${name}" style="border-left-width:4px">
+      <h2>#${t.rank ?? '—'} · ${name} · score ${num(t.score, 0)}
+        ${t.in_cycle ? '· in cycle since ' + t.entry_date : ''}</h2>
+      <p class="hint">${t.reason ?? ''} ·
+        oscillator <strong>${t.oscillator_now ?? '—'}</strong>${
+          t.osc_slope == null ? '' : ` (${t.osc_slope >= 0 ? '+' : ''}${num(t.osc_slope, 0)} in a month)`} ·
+        ${g.pct_above_50d ?? '—'}% of ${g.members ?? '—'} members above their 50-day ·
+        group 1M ${sgn(g.ret_1m)} (RS ${sgn(g.rs_1m)})</p>
+      ${oscChart(t.oscillator_series, t.signals, ez, xz)}
+      <div class="legend">
+        <span><span class="dot" style="background:#1F6F5C"></span>Entry</span>
+        <span><span class="dot" style="background:#A63D2F"></span>Exit</span>
+      </div>
+      <div style="margin-top:16px">${ribbon(t.cycles)}</div>
+      ${basketTable(t.members)}
+      <h2 style="margin-top:20px">Top ${(t.drivers || []).length} drivers</h2>
+      <p class="hint">The names actually moving this sector, ranked by their contribution to
+      the group's one-month move. <strong>Contrib</strong> is that member's share of the
+      equal-weight index return. <strong>Ext</strong> is ATRs above the 20-day; 3 or more
+      means a new entry would be chasing.</p>
+      <div class="scroll">${driversTable(t.drivers)}</div>
+    </div>`;
+  }).join('') || '<div class="card"><p class="hint">No sectors in this zone.</p></div>';
+
+  document.querySelectorAll('#themes table').forEach(makeSortable);
+}
+
+marketChips(() => render().catch(showErr));
+function showErr(e) {
+  document.getElementById('stamp').textContent = 'No data loaded';
+  document.querySelectorAll('.card').forEach(c => c.style.display = 'none');
+  document.getElementById('themes').innerHTML = failureHtml(e, market);
+  document.getElementById('themes').querySelectorAll('.card').forEach(c => c.style.display = '');
+}
+render().catch(showErr);
+</script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Cycle oscillator mark">
+  <rect width="512" height="512" rx="104" fill="#18211D"/>
+  <path d="M64 300 Q118 336 156 300 T248 180 T340 260 T448 176" fill="none"
+        stroke="#1F6F5C" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="156" cy="312" r="26" fill="#1F6F5C"/>
+  <circle cx="340" cy="258" r="26" fill="#D4A843"/>
+  <rect x="64" y="378" width="384" height="14" rx="7" fill="#5A665F" opacity=".5"/>
+</svg>
