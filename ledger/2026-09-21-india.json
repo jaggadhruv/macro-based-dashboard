@@ -1,0 +1,156 @@
+{
+ "date": "2026-09-21",
+ "market": "india",
+ "config": {
+  "entry_zone": 25.0,
+  "exit_zone": 75.0,
+  "confirm_days": 3,
+  "ma_window": 200,
+  "smooth": 10,
+  "percentile_window": 750,
+  "n_tier1": 4,
+  "n_tier2": 4,
+  "tier1_weight": 0.7,
+  "stop_loss": 0.2,
+  "max_hold_days": 252,
+  "gate_pool": 20,
+  "quality_pool_per_sector": 12,
+  "require_forward_coverage": false,
+  "stale_after_days": 1,
+  "refresh_every_days": 7
+ },
+ "themes": {
+  "Capital goods": {
+   "oscillator": 44.666666666666664,
+   "in_cycle": false,
+   "basket": []
+  },
+  "Power & utilities": {
+   "oscillator": 16.53333333333333,
+   "in_cycle": false,
+   "basket": []
+  },
+  "Defence & rail": {
+   "oscillator": 35.46666666666667,
+   "in_cycle": false,
+   "basket": []
+  },
+  "Pharma & chemicals": {
+   "oscillator": 32.266666666666666,
+   "in_cycle": false,
+   "basket": []
+  },
+  "Banks & financials": {
+   "oscillator": 39.2,
+   "in_cycle": false,
+   "basket": []
+  },
+  "Auto & ancillaries": {
+   "oscillator": 26.13333333333333,
+   "in_cycle": false,
+   "basket": []
+  },
+  "IT & digital": {
+   "oscillator": 29.2,
+   "in_cycle": false,
+   "basket": []
+  },
+  "Metals & materials": {
+   "oscillator": 6.533333333333332,
+   "in_cycle": false,
+   "basket": []
+  }
+ },
+ "technical": [
+  {
+   "ticker": "NAVINFLUOR.NS",
+   "signal": "pullback",
+   "quality": 70.0,
+   "entry": 8477.5,
+   "stop": 7910.26,
+   "target": 10179.21,
+   "reward_risk": 3.0
+  },
+  {
+   "ticker": "BAJAJ-AUTO.NS",
+   "signal": "pullback",
+   "quality": 67.7,
+   "entry": 11510.0,
+   "stop": 11087.71,
+   "target": 12776.86,
+   "reward_risk": 3.0
+  },
+  {
+   "ticker": "LUMAXTECH.NS",
+   "signal": "squeeze",
+   "quality": 66.5,
+   "entry": 2066.1,
+   "stop": 1818.17,
+   "target": 2891.97,
+   "reward_risk": 3.33
+  },
+  {
+   "ticker": "GRANULES.NS",
+   "signal": "pullback",
+   "quality": 66.4,
+   "entry": 874.85,
+   "stop": 814.12,
+   "target": 1057.04,
+   "reward_risk": 3.0
+  },
+  {
+   "ticker": "IPCALAB.NS",
+   "signal": "squeeze",
+   "quality": 66.2,
+   "entry": 2010.3,
+   "stop": 1769.06,
+   "target": 2734.01,
+   "reward_risk": 3.0
+  },
+  {
+   "ticker": "ELGIEQUIP.NS",
+   "signal": "pullback",
+   "quality": 63.5,
+   "entry": 612.85,
+   "stop": 575.54,
+   "target": 724.77,
+   "reward_risk": 3.0
+  },
+  {
+   "ticker": "KARURVYSYA.NS",
+   "signal": "pullback",
+   "quality": 62.0,
+   "entry": 326.6,
+   "stop": 309.68,
+   "target": 377.36,
+   "reward_risk": 3.0
+  },
+  {
+   "ticker": "AUBANK.NS",
+   "signal": "pullback",
+   "quality": 61.1,
+   "entry": 1039.0,
+   "stop": 998.67,
+   "target": 1159.99,
+   "reward_risk": 3.0
+  },
+  {
+   "ticker": "AJANTPHARM.NS",
+   "signal": "squeeze",
+   "quality": 61.1,
+   "entry": 3545.2,
+   "stop": 3119.78,
+   "target": 4821.47,
+   "reward_risk": 3.0
+  },
+  {
+   "ticker": "FINEORG.NS",
+   "signal": "squeeze",
+   "quality": 61.0,
+   "entry": 5150.0,
+   "stop": 4532.0,
+   "target": 7004.0,
+   "reward_risk": 3.0
+  }
+ ]
+}
