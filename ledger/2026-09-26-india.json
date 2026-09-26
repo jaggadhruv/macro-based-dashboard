@@ -1,0 +1,129 @@
+{
+ "date": "2026-09-26",
+ "market": "india",
+ "config": {
+  "entry_zone": 25.0,
+  "exit_zone": 75.0,
+  "confirm_days": 3,
+  "ma_window": 200,
+  "smooth": 10,
+  "percentile_window": 750,
+  "n_tier1": 4,
+  "n_tier2": 4,
+  "tier1_weight": 0.7,
+  "stop_loss": 0.2,
+  "max_hold_days": 252,
+  "gate_pool": 20,
+  "quality_pool_per_sector": 12,
+  "require_forward_coverage": false,
+  "stale_after_days": 1,
+  "refresh_every_days": 7
+ },
+ "themes": {
+  "Capital goods": {
+   "oscillator": 32.0,
+   "in_cycle": false,
+   "basket": []
+  },
+  "Power & utilities": {
+   "oscillator": 14.000000000000002,
+   "in_cycle": false,
+   "basket": []
+  },
+  "Defence & rail": {
+   "oscillator": 34.8,
+   "in_cycle": false,
+   "basket": []
+  },
+  "Pharma & chemicals": {
+   "oscillator": 37.2,
+   "in_cycle": false,
+   "basket": []
+  },
+  "Banks & financials": {
+   "oscillator": 28.666666666666668,
+   "in_cycle": false,
+   "basket": []
+  },
+  "Auto & ancillaries": {
+   "oscillator": 30.133333333333333,
+   "in_cycle": false,
+   "basket": []
+  },
+  "IT & digital": {
+   "oscillator": 35.6,
+   "in_cycle": false,
+   "basket": []
+  },
+  "Metals & materials": {
+   "oscillator": 6.666666666666667,
+   "in_cycle": false,
+   "basket": []
+  }
+ },
+ "technical": [
+  {
+   "ticker": "ZYDUSLIFE.NS",
+   "signal": "breakout",
+   "quality": 71.0,
+   "entry": 1203.9,
+   "stop": 1140.19,
+   "target": 1395.04,
+   "reward_risk": 3.0
+  },
+  {
+   "ticker": "GRANULES.NS",
+   "signal": "pullback",
+   "quality": 70.4,
+   "entry": 868.65,
+   "stop": 813.43,
+   "target": 1034.31,
+   "reward_risk": 3.0
+  },
+  {
+   "ticker": "CUB.NS",
+   "signal": "pullback",
+   "quality": 64.3,
+   "entry": 225.57,
+   "stop": 210.89,
+   "target": 269.6,
+   "reward_risk": 3.0
+  },
+  {
+   "ticker": "BAJAJ-AUTO.NS",
+   "signal": "pullback",
+   "quality": 61.8,
+   "entry": 11208.0,
+   "stop": 10867.0,
+   "target": 12231.0,
+   "reward_risk": 3.0
+  },
+  {
+   "ticker": "MOTHERSON.NS",
+   "signal": "squeeze",
+   "quality": 61.6,
+   "entry": 165.71,
+   "stop": 145.82,
+   "target": 225.37,
+   "reward_risk": 3.0
+  },
+  {
+   "ticker": "HINDZINC.NS",
+   "signal": "pullback",
+   "quality": 61.1,
+   "entry": 588.95,
+   "stop": 558.6,
+   "target": 680.0,
+   "reward_risk": 3.0
+  },
+  {
+   "ticker": "KARURVYSYA.NS",
+   "signal": "pullback",
+   "quality": 60.1,
+   "entry": 325.0,
+   "stop": 307.94,
+   "target": 376.19,
+   "reward_risk": 3.0
+  }
+ ]
+}
