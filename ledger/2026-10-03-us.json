@@ -1,0 +1,206 @@
+{
+ "date": "2026-10-03",
+ "market": "us",
+ "config": {
+  "entry_zone": 25.0,
+  "exit_zone": 75.0,
+  "confirm_days": 3,
+  "ma_window": 200,
+  "smooth": 10,
+  "percentile_window": 750,
+  "n_tier1": 4,
+  "n_tier2": 4,
+  "tier1_weight": 0.7,
+  "stop_loss": 0.2,
+  "max_hold_days": 252,
+  "gate_pool": 20,
+  "quality_pool_per_sector": 12,
+  "require_forward_coverage": false,
+  "stale_after_days": 1,
+  "refresh_every_days": 7
+ },
+ "themes": {
+  "Semis & AI infra": {
+   "oscillator": 48.0,
+   "in_cycle": false,
+   "basket": []
+  },
+  "Software": {
+   "oscillator": 74.66666666666667,
+   "in_cycle": false,
+   "basket": []
+  },
+  "Banks & financials": {
+   "oscillator": 9.6,
+   "in_cycle": true,
+   "basket": [
+    {
+     "ticker": "USB",
+     "rank": 1,
+     "tier": "T1",
+     "weight": 0.175
+    },
+    {
+     "ticker": "CFG",
+     "rank": 2,
+     "tier": "T1",
+     "weight": 0.175
+    },
+    {
+     "ticker": "MTB",
+     "rank": 3,
+     "tier": "T1",
+     "weight": 0.175
+    },
+    {
+     "ticker": "KEY",
+     "rank": 4,
+     "tier": "T1",
+     "weight": 0.175
+    },
+    {
+     "ticker": "STT",
+     "rank": 5,
+     "tier": "T2",
+     "weight": 0.075
+    },
+    {
+     "ticker": "PNC",
+     "rank": 6,
+     "tier": "T2",
+     "weight": 0.075
+    },
+    {
+     "ticker": "C",
+     "rank": 7,
+     "tier": "T2",
+     "weight": 0.075
+    },
+    {
+     "ticker": "FITB",
+     "rank": 8,
+     "tier": "T2",
+     "weight": 0.075
+    }
+   ]
+  },
+  "Energy": {
+   "oscillator": 57.733333333333334,
+   "in_cycle": false,
+   "basket": []
+  },
+  "Industrials & defence": {
+   "oscillator": 8.933333333333334,
+   "in_cycle": false,
+   "basket": []
+  },
+  "Healthcare": {
+   "oscillator": 68.93333333333334,
+   "in_cycle": false,
+   "basket": []
+  },
+  "Consumer": {
+   "oscillator": 0.26666666666666666,
+   "in_cycle": true,
+   "basket": [
+    {
+     "ticker": "KO",
+     "rank": 1,
+     "tier": "T1",
+     "weight": 0.175
+    },
+    {
+     "ticker": "ROST",
+     "rank": 2,
+     "tier": "T1",
+     "weight": 0.175
+    },
+    {
+     "ticker": "TJX",
+     "rank": 3,
+     "tier": "T1",
+     "weight": 0.175
+    },
+    {
+     "ticker": "PG",
+     "rank": 4,
+     "tier": "T1",
+     "weight": 0.175
+    },
+    {
+     "ticker": "EBAY",
+     "rank": 5,
+     "tier": "T2",
+     "weight": 0.15
+    },
+    {
+     "ticker": "AMZN",
+     "rank": 6,
+     "tier": "T2",
+     "weight": 0.15
+    }
+   ]
+  },
+  "Materials & miners": {
+   "oscillator": 14.399999999999999,
+   "in_cycle": false,
+   "basket": []
+  }
+ },
+ "technical": [
+  {
+   "ticker": "MU",
+   "signal": "squeeze",
+   "quality": 67.4,
+   "entry": 1074.89,
+   "stop": 945.9,
+   "target": 1479.56,
+   "reward_risk": 3.14
+  },
+  {
+   "ticker": "JNJ",
+   "signal": "pullback",
+   "quality": 66.9,
+   "entry": 256.03,
+   "stop": 246.29,
+   "target": 285.25,
+   "reward_risk": 3.0
+  },
+  {
+   "ticker": "GILD",
+   "signal": "pullback",
+   "quality": 66.6,
+   "entry": 144.74,
+   "stop": 137.72,
+   "target": 165.8,
+   "reward_risk": 3.0
+  },
+  {
+   "ticker": "ETN",
+   "signal": "pullback",
+   "quality": 66.3,
+   "entry": 436.11,
+   "stop": 384.77,
+   "target": 590.13,
+   "reward_risk": 3.0
+  },
+  {
+   "ticker": "ROST",
+   "signal": "pullback",
+   "quality": 64.6,
+   "entry": 228.54,
+   "stop": 218.6,
+   "target": 258.36,
+   "reward_risk": 3.0
+  },
+  {
+   "ticker": "FAST",
+   "signal": "squeeze",
+   "quality": 61.7,
+   "entry": 50.75,
+   "stop": 44.66,
+   "target": 69.02,
+   "reward_risk": 3.0
+  }
+ ]
+}
