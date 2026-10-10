@@ -1,0 +1,111 @@
+{
+ "date": "2026-10-10",
+ "market": "india",
+ "config": {
+  "entry_zone": 25.0,
+  "exit_zone": 75.0,
+  "confirm_days": 3,
+  "ma_window": 200,
+  "smooth": 10,
+  "percentile_window": 750,
+  "n_tier1": 4,
+  "n_tier2": 4,
+  "tier1_weight": 0.7,
+  "stop_loss": 0.2,
+  "max_hold_days": 252,
+  "gate_pool": 20,
+  "quality_pool_per_sector": 12,
+  "require_forward_coverage": false,
+  "stale_after_days": 1,
+  "refresh_every_days": 7
+ },
+ "themes": {
+  "Capital goods": {
+   "oscillator": 23.599999999999998,
+   "in_cycle": false,
+   "basket": []
+  },
+  "Power & utilities": {
+   "oscillator": 13.066666666666665,
+   "in_cycle": false,
+   "basket": []
+  },
+  "Defence & rail": {
+   "oscillator": 32.93333333333333,
+   "in_cycle": false,
+   "basket": []
+  },
+  "Pharma & chemicals": {
+   "oscillator": 0.0,
+   "in_cycle": false,
+   "basket": []
+  },
+  "Banks & financials": {
+   "oscillator": 12.933333333333334,
+   "in_cycle": false,
+   "basket": []
+  },
+  "Auto & ancillaries": {
+   "oscillator": 13.333333333333334,
+   "in_cycle": false,
+   "basket": []
+  },
+  "IT & digital": {
+   "oscillator": 32.53333333333333,
+   "in_cycle": false,
+   "basket": []
+  },
+  "Metals & materials": {
+   "oscillator": 2.533333333333333,
+   "in_cycle": false,
+   "basket": []
+  }
+ },
+ "technical": [
+  {
+   "ticker": "IPCALAB.NS",
+   "signal": "pullback",
+   "quality": 68.6,
+   "entry": 1915.4,
+   "stop": 1807.64,
+   "target": 2238.67,
+   "reward_risk": 3.0
+  },
+  {
+   "ticker": "FINCABLES.NS",
+   "signal": "squeeze",
+   "quality": 67.7,
+   "entry": 1388.7,
+   "stop": 1222.06,
+   "target": 1994.69,
+   "reward_risk": 3.64
+  },
+  {
+   "ticker": "AJANTPHARM.NS",
+   "signal": "pullback",
+   "quality": 63.2,
+   "entry": 3410.1,
+   "stop": 3213.33,
+   "target": 4000.41,
+   "reward_risk": 3.0
+  },
+  {
+   "ticker": "SONACOMS.NS",
+   "signal": "pullback",
+   "quality": 62.2,
+   "entry": 783.3,
+   "stop": 734.34,
+   "target": 930.17,
+   "reward_risk": 3.0
+  },
+  {
+   "ticker": "CUB.NS",
+   "signal": "squeeze",
+   "quality": 61.7,
+   "entry": 231.42,
+   "stop": 203.65,
+   "target": 320.11,
+   "reward_risk": 3.19
+  }
+ ]
+}
